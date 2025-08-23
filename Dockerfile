@@ -9,15 +9,13 @@ COPY . .
 COPY Cargo.toml .
 COPY Cargo.lock .
 
-RUN chmod +x ./download_all.sh && ./download_all.sh
-
-RUN cargo build --release
+# Use make to download data and build
+RUN make data && make build
 
 FROM debian:sid-slim AS runner
 
 WORKDIR /app
 
-COPY --from=builderrs /app/target/release/build ./target/release/build
 COPY --from=builderrs /app/target/release/koko ./target/release/koko
 COPY --from=builderrs /app/data ./data
 COPY --from=builderrs /app/checkpoints ./checkpoints

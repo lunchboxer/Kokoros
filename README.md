@@ -54,45 +54,49 @@ New Discord community: https://discord.gg/E566zfDWqD, Please join us if you inte
 
 ## Installation
 
-1. Download the required model and voice data files:
+1. Build the project and download required data files:
 
 ```bash
-bash download_all.sh
+make all
 ```
 
-This will download:
-- The Kokoro ONNX model (`checkpoints/kokoro-v1.0.onnx`)
-- The voices data file (`data/voices-v1.0.bin`)
+This will:
+- Build the project in release mode
+- Download the Kokoro ONNX model (`checkpoints/kokoro-v1.0.onnx`)
+- Download the voices data file (`data/voices-v1.0.bin`)
+- Verify the integrity of downloaded files
 
-Alternatively, you can download them separately:
-```bash
-bash scripts/download_models.sh
-bash scripts/download_voices.sh
-```
-
-2. Build the project:
-
-```bash
-cargo build --release
-```
-
-3. (Optional) Install Python dependencies for OpenAI client examples:
+2. (Optional) Install Python dependencies for OpenAI client examples:
 
 ```bash
 pip install -r scripts/requirements.txt
 ```
 
-4. (Optional) Install the binary and voice data system-wide:
+3. (Optional) Install the binary and voice data:
 
+For user-wide installation (default):
 ```bash
-bash install.sh
+make install
 ```
 
-This will copy the `koko` binary to `/usr/local/bin` (making it available system-wide as `koko`) and copy the voice data to `$HOME/.cache/kokoros/`.
+For system-wide installation:
+```bash
+sudo make install INSTALL_TYPE=system
+```
+
+This will install:
+- The `koko` binary to `~/.local/bin` (user) or `/usr/local/bin` (system)
+- The voice data to `~/.local/share/koko` (user) or `/usr/local/share/koko` (system)
 
 ## Usage
 
 ### View available options
+
+```bash
+koko -h
+```
+
+or if not installed:
 
 ```bash
 ./target/release/koko -h
@@ -101,16 +105,28 @@ This will copy the `koko` binary to `/usr/local/bin` (making it available system
 ### Generate speech for some text
 
 ```
+koko text "Hello, this is a TTS test"
+```
+
+or if not installed:
+
+```
 ./target/release/koko text "Hello, this is a TTS test"
 ```
 
 The generated audio will be saved to `tmp/output.wav` by default. You can customize the save location with the `--output` or `-o` option:
 
 ```
-./target/release/koko text "I hope you're having a great day today!" --output greeting.wav
+koko text "I hope you're having a great day today!" --output greeting.wav
 ```
 
 ### Generate speech for each line in a file
+
+```
+koko file poem.txt
+```
+
+or if not installed:
 
 ```
 ./target/release/koko file poem.txt
@@ -119,12 +135,25 @@ The generated audio will be saved to `tmp/output.wav` by default. You can custom
 For a file with 3 lines of text, by default, speech audio files `tmp/output_0.wav`, `tmp/output_1.wav`, `tmp/output_2.wav` will be outputted. You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
 
 ```
-./target/release/koko file lyrics.txt -o "song/lyric_{line}.wav"
+koko file lyrics.txt -o "song/lyric_{line}.wav"
 ```
 
 ### Parallel Processing Configuration
 
 Configure parallel TTS instances for the OpenAI-compatible server based on your performance preference:
+
+```
+# Best 0.5-2 seconds time-to-first-audio (lowest latency)
+koko openai --instances 1
+
+# Balanced performance (default, 2 instances, usually best throughput for CPU processing)
+koko openai
+
+# Best total processing time (Diminishing returns on CPU processing observed on Mac M2)
+koko openai --instances 4
+```
+
+or if not installed:
 
 ```
 # Best 0.5-2 seconds time-to-first-audio (lowest latency)
@@ -159,6 +188,12 @@ Choose your configuration based on use case:
 ### OpenAI-Compatible Server
 
 1. Start the server:
+
+```bash
+koko openai
+```
+
+or if not installed:
 
 ```bash
 ./target/release/koko openai
@@ -217,6 +252,15 @@ Use it in conjunction with piping.
 #### Typing manually
 
 ```
+koko stream > live-audio.wav
+# Start typing some text to generate speech for and hit enter to submit
+# Speech will append to `live-audio.wav` as it is generated
+# Hit Ctrl D to exit
+```
+
+or if not installed:
+
+```
 ./target/release/koko stream > live-audio.wav
 # Start typing some text to generate speech for and hit enter to submit
 # Speech will append to `live-audio.wav` as it is generated
@@ -224,6 +268,12 @@ Use it in conjunction with piping.
 ```
 
 #### Input from another source
+
+```
+echo "Suppose some other program was outputting lines of text" | koko stream > programmatic-audio.wav
+```
+
+or if not installed:
 
 ```
 echo "Suppose some other program was outputting lines of text" | ./target/release/koko stream > programmatic-audio.wav

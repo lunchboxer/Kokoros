@@ -1,22 +1,49 @@
-name: Package and Release
+name: Build, Package, and Release
 
 on:
   push:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
-  package-and-release:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: |
+          cargo build --release --bin koko
+
+      - name: Save binary as artifact
+        uses: actions/upload-artifact@v4
         with:
           name: koko-binary
-          path: target/release
+          path: target/release/koko
+          if-no-files-found: error
 
       - name: Make binary executable
         run: chmod +x target/release/koko
@@ -125,7 +152,7 @@ jobs:
         with:
           package: koko
           package_root: .debpkg
-          maintainer: James Smith <lunchboxer@disroot.org>
+          maintainer: Lucas Jin <lucasjin@example.com>
           version: ${{ env.PACKAGE_VERSION }}
           arch: 'amd64'
           depends: 'wget, coreutils'
@@ -139,28 +166,26 @@ jobs:
             This package will automatically download the required model files to /usr/share/koko/
             on first installation. If the download fails, you can manually download the files from:
             https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/
-        id: build_deb
 
       - name: Rename Debian package
         run: |
-          mv ${{ steps.build_deb.outputs.file_name }} koko_${{ env.PACKAGE_VERSION }}_amd64.deb
+          mv koko_${{ env.PACKAGE_VERSION }}_amd64.deb koko-${{ github.ref_name }}-amd64.deb
 
-      - name: Create release
-        uses: actions/create-release@v1
+      - name: Create Release
         id: create_release
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          draft: false
+          prerelease: false
 
       - name: Upload binary asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/release/koko
+          asset_path: target/release/koko
           asset_name: koko-${{ github.ref_name }}-linux-amd64
           asset_content_type: application/octet-stream
         env:
@@ -170,8 +195,8 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./koko_${{ github.ref_name }}_amd64.deb
-          asset_name: koko_${{ github.ref_name }}_amd64.deb
+          asset_path: koko-${{ github.ref_name }}-amd64.deb
+          asset_name: koko-${{ github.ref_name }}-amd64.deb
           asset_content_type: application/vnd.debian.binary-package
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

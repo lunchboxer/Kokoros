@@ -1,0 +1,183 @@
+name: Package and Release
+
+on:
+  workflow_run:
+    workflows: ["Build Release Binary"]
+    types:
+      - completed
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: koko-binary
+          path: target/release
+
+      - name: Make binary executable
+        run: chmod +x target/release/koko
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget sha256sum dpkg-dev debhelper
+
+      - name: Create directories for packaging
+        run: |
+          mkdir -p kokoro-deb/usr/bin
+          mkdir -p kokoro-deb/usr/share/koko
+          mkdir -p kokoro-deb/DEBIAN
+          mkdir -p kokoro-deb/etc/koko
+
+      - name: Copy binary
+        run: |
+          cp target/release/koko kokoro-deb/usr/bin/
+
+      - name: Create postinst script
+        run: |
+          cat > kokoro-deb/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          # Create data directories
+          mkdir -p /usr/share/koko
+          
+          # Function to download and verify file
+          download_and_verify() {
+              local url="$1"
+              local file_path="$2"
+              local hash_url="$3"
+              
+              echo "Downloading $(basename "$file_path")..."
+              
+              # Download file
+              if ! wget -O "$file_path" "$url"; then
+                  echo "WARNING: Failed to download $(basename "$file_path")"
+                  echo "Please download it manually from: $url"
+                  return 1
+              fi
+              
+              # Download hash if available
+              if wget -O "$file_path.sha256" "$hash_url" 2>/dev/null; then
+                  # Verify hash
+                  echo "Verifying $(basename "$file_path")..."
+                  if ! sha256sum -c "$file_path.sha256" 2>/dev/null; then
+                      echo "WARNING: Hash verification failed for $(basename "$file_path")"
+                      return 1
+                  fi
+                  echo "$(basename "$file_path") verified successfully"
+              else
+                  echo "No hash available for $(basename "$file_path"), skipping verification"
+              fi
+              
+              return 0
+          }
+          
+          # Download model files to the standard location where the app expects them
+          echo "Downloading Kokoro model files..."
+          
+          download_and_verify \
+              "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx" \
+              "/usr/share/koko/kokoro-v1.0.onnx" \
+              "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx.sha256" || true
+              
+          download_and_verify \
+              "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin" \
+              "/usr/share/koko/voices-v1.0.bin" \
+              "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin.sha256" || true
+          
+          # Set permissions
+          chmod 644 /usr/share/koko/kokoro-v1.0.onnx 2>/dev/null || true
+          chmod 644 /usr/share/koko/voices-v1.0.bin 2>/dev/null || true
+          chmod 644 /usr/share/koko/kokoro-v1.0.onnx.sha256 2>/dev/null || true
+          chmod 644 /usr/share/koko/voices-v1.0.bin.sha256 2>/dev/null || true
+          
+          echo "Kokoro installation completed."
+          echo "Model files have been downloaded to /usr/share/koko/"
+          echo "If any download fails, you can manually download the files from:"
+          echo "  Model: https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+          echo "  Voices: https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+          
+          exit 0
+          EOF
+          
+          chmod 755 kokoro-deb/DEBIAN/postinst
+
+      - name: Create postrm script
+        run: |
+          cat > kokoro-deb/DEBIAN/postrm << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          # Remove data files on purge
+          if [ "$1" = "purge" ]; then
+              rm -rf /usr/share/koko
+          fi
+          
+          exit 0
+          EOF
+          
+          chmod 755 kokoro-deb/DEBIAN/postrm
+
+      - name: Create control file
+        run: |
+          PACKAGE_VERSION=$(grep '^version =' koko/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          cat > kokoro-deb/DEBIAN/control << EOF
+Package: koko
+Version: $PACKAGE_VERSION
+Section: sound
+Priority: optional
+Architecture: amd64
+Maintainer: Lucas Jin <lucasjin@example.com>
+Depends: wget, coreutils
+Description: Kokoro TTS - insanely fast text-to-speech engine
+ Koko is a blazingly fast text-to-speech engine powered by the Kokoro ONNX model.
+ Supports multiple languages including English, Chinese, Japanese, and German.
+ .
+ This package will automatically download the required model files to /usr/share/koko/
+ on first installation. If the download fails, you can manually download the files from:
+ https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/
+EOF
+
+      - name: Set permissions
+        run: |
+          chmod 755 kokoro-deb/usr/bin/koko
+
+      - name: Build Debian package
+        run: |
+          dpkg-deb --build kokoro-deb
+          mv kokoro-deb.deb koko_${{ github.event.workflow_run.head_branch }}_amd64.deb
+
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          release_name: Release ${{ github.event.workflow_run.head_branch }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload binary asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/release/koko
+          asset_name: koko-${{ github.event.workflow_run.head_branch }}-linux-amd64
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Debian package asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./koko_${{ github.event.workflow_run.head_branch }}_amd64.deb
+          asset_name: koko_${{ github.event.workflow_run.head_branch }}_amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

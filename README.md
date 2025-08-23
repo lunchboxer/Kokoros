@@ -277,6 +277,8 @@ docker run -p 3000:3000 kokoros openai
 
 Due to Kokoro actually not finalizing it's ability, this repo will keep tracking the status of Kokoro, and helpfully we can have language support incuding: English, Mandarin, Japanese, German, French etc.
 
-## Copyright
+## Copyright & License
 
-Copyright reserved by Lucas Jin under Apache License.
+This project is a fork of the original **Kokoros** [Kokoros](https://github.com/lucas-jin/kokoros) repository by Lucas Jin. All core functionality is based on his foundational work.
+
+This software is released under the **Apache License, Version 2.0**. A full copy of the license is included in this repository.

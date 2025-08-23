@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use ndarray::Array3;
 use ndarray_npy::NpzReader;
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -74,27 +75,92 @@ impl TTSKoko {
         Self::from_config(model_path, voices_path, InitConfig::default()).await
     }
 
+    /// Find file in standard locations
+    fn find_file_in_standard_locations(file_path: &str, file_type: &str) -> String {
+        // If the provided path exists, use it as-is
+        if Path::new(file_path).exists() {
+            return file_path.to_string();
+        }
+
+        // Get the file name from the path
+        let file_name = Path::new(file_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(file_path);
+
+        // Define standard search paths in order of preference
+        let search_paths = match file_type {
+            "model" => vec![
+                // User-specific data directory
+                format!("{}/.local/share/koko/{}", env::var("HOME").unwrap_or_else(|_| ".".to_string()), file_name),
+                // System-wide data directories
+                format!("/usr/local/share/koko/{}", file_name),
+                format!("/usr/share/koko/{}", file_name),
+                // Current behavior as fallback
+                file_path.to_string(),
+            ],
+            "voices" => vec![
+                // User-specific data directory
+                format!("{}/.local/share/koko/{}", env::var("HOME").unwrap_or_else(|_| ".".to_string()), file_name),
+                // System-wide data directories
+                format!("/usr/local/share/koko/{}", file_name),
+                format!("/usr/share/koko/{}", file_name),
+                // Current behavior as fallback
+                file_path.to_string(),
+            ],
+            _ => vec![file_path.to_string()],
+        };
+
+        // Return the first path that exists
+        for path in search_paths {
+            if Path::new(&path).exists() {
+                tracing::info!("Found {} file at: {}", file_type, path);
+                return path;
+            }
+        }
+
+        // If none exist, return the original path for error handling upstream
+        tracing::warn!("{} file not found in standard locations, using provided path: {}", file_type, file_path);
+        file_path.to_string()
+    }
+
+    /// Find voices file in standard locations
+    fn find_voices_file(voices_path: &str) -> String {
+        Self::find_file_in_standard_locations(voices_path, "voices")
+    }
+
+    /// Find model file in standard locations
+    fn find_model_file(model_path: &str) -> String {
+        Self::find_file_in_standard_locations(model_path, "model")
+    }
+
     pub async fn from_config(model_path: &str, voices_path: &str, cfg: InitConfig) -> Self {
-        if !Path::new(model_path).exists() {
-            utils::fileio::download_file_from_url(cfg.model_url.as_str(), model_path)
+        // Find model file in standard locations
+        let resolved_model_path = Self::find_model_file(model_path);
+
+        if !Path::new(&resolved_model_path).exists() {
+            utils::fileio::download_file_from_url(cfg.model_url.as_str(), &resolved_model_path)
                 .await
                 .expect("download model failed.");
         }
 
-        if !Path::new(voices_path).exists() {
-            utils::fileio::download_file_from_url(cfg.voices_url.as_str(), voices_path)
+        // Find voices file in standard locations
+        let resolved_voices_path = Self::find_voices_file(voices_path);
+
+        if !Path::new(&resolved_voices_path).exists() {
+            utils::fileio::download_file_from_url(cfg.voices_url.as_str(), &resolved_voices_path)
                 .await
                 .expect("download voices data file failed.");
         }
 
         let model = Arc::new(Mutex::new(
-            ort_koko::OrtKoko::new(model_path.to_string())
+            ort_koko::OrtKoko::new(resolved_model_path.to_string())
                 .expect("Failed to create Kokoro TTS model"),
         ));
         // TODO: if(not streaming) { model.print_info(); }
         // model.print_info();
 
-        let styles = Self::load_voices(voices_path);
+        let styles = Self::load_voices(&resolved_voices_path);
 
         TTSKoko {
             model_path: model_path.to_string(),
@@ -652,6 +718,16 @@ impl TTSKoko {
 }
 
 impl TTSKokoParallel {
+    /// Find voices file in standard locations (delegated to TTSKoko)
+    fn find_voices_file(voices_path: &str) -> String {
+        TTSKoko::find_voices_file(voices_path)
+    }
+
+    /// Find model file in standard locations (delegated to TTSKoko)
+    fn find_model_file(model_path: &str) -> String {
+        TTSKoko::find_model_file(model_path)
+    }
+
     pub async fn new_with_instances(
         model_path: &str,
         voices_path: &str,
@@ -672,14 +748,20 @@ impl TTSKokoParallel {
         cfg: InitConfig,
         num_instances: usize,
     ) -> Self {
-        if !Path::new(model_path).exists() {
-            utils::fileio::download_file_from_url(cfg.model_url.as_str(), model_path)
+        // Find model file in standard locations
+        let resolved_model_path = Self::find_model_file(model_path);
+
+        if !Path::new(&resolved_model_path).exists() {
+            utils::fileio::download_file_from_url(cfg.model_url.as_str(), &resolved_model_path)
                 .await
                 .expect("download model failed.");
         }
 
-        if !Path::new(voices_path).exists() {
-            utils::fileio::download_file_from_url(cfg.voices_url.as_str(), voices_path)
+        // Find voices file in standard locations
+        let resolved_voices_path = Self::find_voices_file(voices_path);
+
+        if !Path::new(&resolved_voices_path).exists() {
+            utils::fileio::download_file_from_url(cfg.voices_url.as_str(), &resolved_voices_path)
                 .await
                 .expect("download voices data file failed.");
         }
@@ -694,13 +776,13 @@ impl TTSKokoParallel {
                 num_instances
             );
             let model = Arc::new(Mutex::new(
-                ort_koko::OrtKoko::new(model_path.to_string())
+                ort_koko::OrtKoko::new(resolved_model_path.to_string())
                     .expect("Failed to create Kokoro TTS model"),
             ));
             models.push(model);
         }
 
-        let styles = TTSKoko::load_voices(voices_path);
+        let styles = TTSKoko::load_voices(&resolved_voices_path);
 
         TTSKokoParallel {
             model_path: model_path.to_string(),

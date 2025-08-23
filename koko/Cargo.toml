@@ -7,6 +7,7 @@ edition = "2024"
 kokoros = { path = "../kokoros" }
 kokoros-openai = { path = "../kokoros-openai" }
 
+atty = "0.2"
 clap = { version = "4.5.39", features = ["derive"] }
 tokio = { version = "1.45.1", features = ["io-util", "rt-multi-thread"] }
 tracing = "0.1"

@@ -1,12 +1,13 @@
-use clap::{Parser, Subcommand};
+use atty;
+use clap::{Parser, Subcommand, CommandFactory};
 use kokoros::{
     tts::koko::{TTSKoko, TTSOpts},
     utils::wav::{write_audio_chunk, WavHeader},
 };
 use std::net::{IpAddr, SocketAddr};
 use std::{
-    fs::{self},
-    io::Write,
+    fs,
+    io::{Write, Read},
 };
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tracing_subscriber::fmt::time::FormatTime;
@@ -30,12 +31,7 @@ enum Mode {
     #[command(alias = "t", long_flag_alias = "text", short_flag_alias = 't')]
     Text {
         /// Text to generate speech for
-        #[arg(
-            default_value = "Hello, This is Kokoro, your remarkable AI TTS. It's a TTS model with merely 82 million parameters yet delivers incredible audio quality.
-                This is one of the top notch Rust based inference models, and I'm sure you'll love it. If you do, please give us a star. Thank you very much.
-                As the night falls, I wish you all a peaceful and restful sleep. May your dreams be filled with joy and happiness. Good night, and sweet dreams!"
-        )]
-        text: String,
+        text: Option<String>,
 
         /// Path to output the WAV file to on the filesystem
         #[arg(
@@ -84,6 +80,7 @@ enum Mode {
 #[command(name = "kokoros")]
 #[command(version = "0.1")]
 #[command(author = "Lucas Jin")]
+#[command(subcommand_negates_reqs = true)] // Allow subcommands to bypass required args
 struct Cli {
     /// A language identifier from
     /// https://github.com/espeak-ng/espeak-ng/blob/master/docs/languages.md
@@ -148,7 +145,7 @@ struct Cli {
     instances: usize,
 
     #[command(subcommand)]
-    mode: Mode,
+    mode: Option<Mode>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -177,6 +174,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let tts = TTSKoko::new(&model_path, &data_path).await;
 
+        // If no mode is specified, default to Text mode
+        let mode = mode.unwrap_or(Mode::Text { 
+            text: None, 
+            save_path: "tmp/output.wav".to_string() 
+        });
+
         match mode {
             Mode::File {
                 input_path,
@@ -203,6 +206,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             Mode::Text { text, save_path } => {
+                // If no text is provided, check stdin
+                let text = if let Some(t) = text {
+                    t
+                } else {
+                    // Check if stdin is available
+                    if atty::is(atty::Stream::Stdin) {
+                        // No stdin input and no text argument, show error and help
+                        eprintln!("Error: Missing input text.");
+                        eprintln!();
+                        Cli::command().print_help().unwrap();
+                        std::process::exit(1);
+                    } else {
+                        // Read from stdin
+                        let mut stdin = std::io::stdin();
+                        let mut input = String::new();
+                        stdin.read_to_string(&mut input)?;
+                        input
+                    }
+                };
+
+                if text.trim().is_empty() {
+                    eprintln!("Error: Empty input text.");
+                    eprintln!();
+                    Cli::command().print_help().unwrap();
+                    std::process::exit(1);
+                }
+
                 let s = std::time::Instant::now();
                 tts.tts(TTSOpts {
                     txt: &text,

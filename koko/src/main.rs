@@ -49,7 +49,7 @@ enum Mode {
         /// Filesystem path to read lines from
         input_path: String,
 
-        /// Format for the output path of each WAV file, where {line} will be replaced with the line number
+        /// Format for the output path of each WAV file, where {line} will be replaced with the zero-padded line number
         #[arg(
             short = 'o',
             long = "output",
@@ -240,13 +240,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 save_path_format,
             } => {
                 let file_content = fs::read_to_string(input_path)?;
-                for (i, line) in file_content.lines().enumerate() {
+                let lines: Vec<&str> = file_content.lines().collect();
+                let total_lines = lines.len();
+                // Calculate the number of digits needed for zero-padding
+                let padding_width = total_lines.to_string().len();
+
+                for (i, line) in lines.iter().enumerate() {
                     let stripped_line = line.trim();
                     if stripped_line.is_empty() {
                         continue;
                     }
 
-                    let save_path = save_path_format.replace("{line}", &i.to_string());
+                    // Use zero-padded line numbers for proper alphanumeric sorting
+                    let line_number = format!("{:0width$}", i, width = padding_width);
+                    let save_path = save_path_format.replace("{line}", &line_number);
                     tts.tts(TTSOpts {
                         txt: stripped_line,
                         lan: &lan,

@@ -108,7 +108,7 @@ or if not installed:
 ./target/release/koko file poem.txt
 ```
 
-For a file with 3 lines of text, by default, speech audio files `./output_0.wav`, `./output_1.wav`, `./output_2.wav` will be outputted. You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
+For a file with 3 lines of text, by default, speech audio files `./output_0.wav`, `./output_1.wav`, `./output_2.wav` will be outputted. For files with 10 or more lines, zero-padding is automatically applied to ensure proper alphanumeric sorting (e.g., `./output_00.wav`, `./output_01.wav`, ..., `./output_10.wav`). You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
 
 ```
 koko file lyrics.txt -o "song/lyric_{line}.wav"

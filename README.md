@@ -2,29 +2,9 @@
   <img src="https://img2023.cnblogs.com/blog/3572323/202501/3572323-20250112184100378-907988670.jpg" alt="Banner" width="400" height="190">
 </div>
 <br>
-<h1 align="center">🔥🔥🔥 Kokoro Rust</h1>
+<h1 align="center">Kokoro Rust</h1>
 
-## [Zonos Rust Is On The Way?](https://github.com/lucasjinreal/Kokoros/issues/60)
-## [Spark-TTS On The Way?](https://github.com/lucasjinreal/Kokoros/issues/75)
-## [Orpheus-TTS On The Way?](https://github.com/lucasjinreal/Kokoros/issues/75)
-
-
-**ASMR**
-
-https://github.com/user-attachments/assets/1043dfd3-969f-4e10-8b56-daf8285e7420
-
-(typo in video, ignore it)
-
-**Digital Human**
-
-https://github.com/user-attachments/assets/9f5e8fe9-d352-47a9-b4a1-418ec1769567
-
-<p align="center">
-  <b>Give a star ⭐ if you like it!</b>
-</p>
-
-[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is a trending top 2 TTS model on huggingface.
-This repo provides **insanely fast Kokoro infer in Rust**, you can now have your built TTS engine powered by Kokoro and infer fast by only a command of `koko`.
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is the best available open-source TTS model. This repo provides **insanely fast Kokoro infer in Rust**, you can now have your built TTS engine powered by Kokoro and infer fast by only a command of `koko`.
 
 `kokoros` is a `rust` crate that provides easy to use TTS ability.
 One can directly call `koko` in terminal to synthesize audio.
@@ -37,10 +17,6 @@ Languge support:
 - [x] Chinese (partly);
 - [x] Japanese (partly);
 - [x] German (partly);
-
-> 🔥🔥🔥🔥🔥🔥🔥🔥🔥 Kokoros Rust version just got a lot attention now. If you also interested in insanely fast inference, embeded build, wasm support etc, please star this repo! We are keep updating it.
-
-New Discord community: https://discord.gg/E566zfDWqD, Please join us if you interested in Rust Kokoro.
 
 ## Updates
 
@@ -114,7 +90,7 @@ or if not installed:
 ./target/release/koko text "Hello, this is a TTS test"
 ```
 
-The generated audio will be saved to `tmp/output.wav` by default. You can customize the save location with the `--output` or `-o` option:
+The generated audio will be saved to `./output.wav` by default. You can customize the save location with the `--output` or `-o` option:
 
 ```
 koko text "I hope you're having a great day today!" --output greeting.wav
@@ -132,7 +108,7 @@ or if not installed:
 ./target/release/koko file poem.txt
 ```
 
-For a file with 3 lines of text, by default, speech audio files `tmp/output_0.wav`, `tmp/output_1.wav`, `tmp/output_2.wav` will be outputted. You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
+For a file with 3 lines of text, by default, speech audio files `./output_0.wav`, `./output_1.wav`, `./output_2.wav` will be outputted. You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
 
 ```
 koko file lyrics.txt -o "song/lyric_{line}.wav"

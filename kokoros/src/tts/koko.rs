@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use espeak_rs::text_to_phonemes;
@@ -19,9 +18,6 @@ use espeak_rs::text_to_phonemes;
 lazy_static! {
     static ref ESPEAK_MUTEX: Mutex<()> = Mutex::new(());
 }
-
-// Flag to ensure voice styles are only logged once
-static VOICES_LOGGED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone)]
 pub struct TTSOpts<'a> {
@@ -651,58 +647,10 @@ impl TTSKoko {
             map.insert(voice, tensor);
         }
 
+        // Sort voices for consistent ordering
         let _sorted_voices = {
             let mut voices = map.keys().collect::<Vec<_>>();
             voices.sort();
-
-            // Only log voices once across all TTS instances
-            if !VOICES_LOGGED.swap(true, Ordering::Relaxed) {
-                tracing::info!("==========================================");
-                tracing::info!("Voice styles loaded ({} total):", voices.len());
-                tracing::info!("==========================================");
-
-                // Group voices by prefix
-                let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> =
-                    std::collections::BTreeMap::new();
-                for voice in &voices {
-                    if let Some(prefix) = voice.get(0..2) {
-                        grouped_voices
-                            .entry(prefix)
-                            .or_insert_with(Vec::new)
-                            .push(voice);
-                    }
-                }
-
-                for (prefix, voices_in_group) in grouped_voices {
-                    let category = match prefix {
-                        "af" => "American Female(af)",
-                        "am" => "American Male(am)",
-                        "bf" => "British Female(bf)",
-                        "bm" => "British Male(bm)",
-                        "ef" => "European Female(ef)",
-                        "em" => "European Male(em)",
-                        "ff" => "French Female(ff)",
-                        "hf" => "Hindi Female(hf)",
-                        "hm" => "Hindi Male(hm)",
-                        "if" => "Italian Female(if)",
-                        "im" => "Italian Male(im)",
-                        "jf" => "Japanese Female(jf)",
-                        "jm" => "Japanese Male(jm)",
-                        "pf" => "Portuguese Female(pf)",
-                        "pm" => "Portuguese Male(pm)",
-                        "zf" => "Chinese Female(zf)",
-                        "zm" => "Chinese Male(zm)",
-                        _ => prefix,
-                    };
-
-                    let voices_str = voices_in_group.join(", ");
-                    // Gray out the voice information
-                    tracing::info!("\x1b[90m{}: {}\x1b[0m", category, voices_str);
-                }
-
-                tracing::info!("==========================================");
-            }
-
             voices
         };
 

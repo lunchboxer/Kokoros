@@ -38,7 +38,7 @@ enum Mode {
             short = 'o',
             long = "output",
             value_name = "OUTPUT_PATH",
-            default_value = "tmp/output.wav"
+            default_value = "./output.wav"
         )]
         save_path: String,
     },
@@ -54,7 +54,7 @@ enum Mode {
             short = 'o',
             long = "output",
             value_name = "OUTPUT_PATH_FORMAT",
-            default_value = "tmp/output_{line}.wav"
+            default_value = "./output_{line}.wav"
         )]
         save_path_format: String,
     },
@@ -62,6 +62,10 @@ enum Mode {
     /// Continuously read from stdin to generate speech, outputting to stdout, for each line
     #[command(aliases = ["stdio", "stdin", "-"], long_flag_aliases = ["stdio", "stdin"])]
     Stream,
+
+    /// List all available voices
+    #[command(alias = "v", long_flag_alias = "voices", short_flag_alias = 'v')]
+    Voices,
 
     /// Start an OpenAI-compatible HTTP server
     #[command(name = "openai", alias = "oai", long_flag_aliases = ["oai", "openai"])]
@@ -78,7 +82,7 @@ enum Mode {
 
 #[derive(Parser, Debug)]
 #[command(name = "kokoros")]
-#[command(version = "0.1")]
+#[command(version = "0.2.0")]
 #[command(author = "Lucas Jin")]
 #[command(subcommand_negates_reqs = true)] // Allow subcommands to bypass required args
 struct Cli {
@@ -172,13 +176,63 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             mode,
         } = Cli::parse();
 
-        let tts = TTSKoko::new(&model_path, &data_path).await;
+        // Handle the voices command separately to avoid initializing the full TTS system
+        if let Some(Mode::Voices) = mode {
+            // For the voices command, we still need to load the voices data but we'll handle the display ourselves
+            let tts = TTSKoko::new(&model_path, &data_path).await;
+            let voices = tts.get_available_voices();
+            println!("Available voices ({} total):", voices.len());
+            println!("==========================================");
+            
+            // Group voices by prefix for better organization
+            let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> = 
+                std::collections::BTreeMap::new();
+            for voice in &voices {
+                if let Some(prefix) = voice.get(0..2) {
+                    grouped_voices
+                        .entry(prefix)
+                        .or_insert_with(Vec::new)
+                        .push(voice);
+                }
+            }
+
+            for (prefix, voices_in_group) in grouped_voices {
+                let category = match prefix {
+                    "af" => "American Female(af)",
+                    "am" => "American Male(am)",
+                    "bf" => "British Female(bf)",
+                    "bm" => "British Male(bm)",
+                    "ef" => "European Female(ef)",
+                    "em" => "European Male(em)",
+                    "ff" => "French Female(ff)",
+                    "hf" => "Hindi Female(hf)",
+                    "hm" => "Hindi Male(hm)",
+                    "if" => "Italian Female(if)",
+                    "im" => "Italian Male(im)",
+                    "jf" => "Japanese Female(jf)",
+                    "jm" => "Japanese Male(jm)",
+                    "pf" => "Portuguese Female(pf)",
+                    "pm" => "Portuguese Male(pm)",
+                    "zf" => "Chinese Female(zf)",
+                    "zm" => "Chinese Male(zm)",
+                    _ => prefix,
+                };
+
+                let voices_str = voices_in_group.join(", ");
+                println!("{}: {}", category, voices_str);
+            }
+            
+            println!("==========================================");
+            return Ok(());
+        }
 
         // If no mode is specified, default to Text mode
         let mode = mode.unwrap_or(Mode::Text { 
             text: None, 
-            save_path: "tmp/output.wav".to_string() 
+            save_path: "./output.wav".to_string() 
         });
+
+        let tts = TTSKoko::new(&model_path, &data_path).await;
 
         match mode {
             Mode::File {
@@ -247,6 +301,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let words_per_second =
                     text.split_whitespace().count() as f32 / s.elapsed().as_secs_f32();
                 println!("Words per second: {:.2}", words_per_second);
+            }
+
+            Mode::Voices => {
+                // This case is handled earlier, so we just return
+                return Ok(());
             }
 
             Mode::OpenAI { ip, port } => {

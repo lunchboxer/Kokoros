@@ -449,8 +449,7 @@ impl TTSKoko {
                 Err(e) => {
                     eprintln!("Error processing chunk: {:?}", e);
                     eprintln!("Chunk text was: {:?}", chunk);
-                    return Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    return Err(Box::new(std::io::Error::other(
                         format!("Chunk processing failed: {:?}", e),
                     )));
                 }
@@ -532,8 +531,7 @@ impl TTSKoko {
                 Err(e) => {
                     eprintln!("Error processing chunk: {:?}", e);
                     eprintln!("Chunk text was: {:?}", chunk);
-                    return Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    return Err(Box::new(std::io::Error::other(
                         format!("Chunk processing failed: {:?}", e),
                     )));
                 }
@@ -556,7 +554,7 @@ impl TTSKoko {
         }: TTSOpts,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let audio = self.tts_raw_audio(
-            &txt,
+            txt,
             lan,
             style_name,
             speed,
@@ -619,11 +617,10 @@ impl TTSKoko {
             let mut style_portions = Vec::new();
 
             for style in styles {
-                if let Some((name, portion)) = style.split_once('.') {
-                    if let Ok(portion) = portion.parse::<f32>() {
-                        style_names.push(name);
-                        style_portions.push(portion * 0.1);
-                    }
+                if let Some((name, portion)) = style.split_once('.')
+                    && let Ok(portion) = portion.parse::<f32>() {
+                    style_names.push(name);
+                    style_portions.push(portion * 0.1);
                 }
             }
             eprintln!("styles: {:?}, portions: {:?}", style_names, style_portions);
@@ -634,8 +631,8 @@ impl TTSKoko {
                 if let Some(style) = self.styles.get(*name) {
                     let style_slice = &style[tokens_len][0]; // This is a [256] array
                     // Blend into the blended_style
-                    for j in 0..256 {
-                        blended_style[0][j] += style_slice[j] * portion;
+                    for (j, &value) in style_slice.iter().enumerate().take(256) {
+                        blended_style[0][j] += value * portion;
                     }
                 }
             }

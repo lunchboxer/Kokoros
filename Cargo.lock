@@ -109,15 +109,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "autotools"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef941527c41b0fc0dd48511a8154cd5fc7e29200a0ff8b7203c5d777dbc795cf"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -988,7 +979,6 @@ dependencies = [
  "hound",
  "indicatif",
  "lazy_static",
- "mp3lame-encoder",
  "ndarray",
  "ndarray-npy",
  "ort",
@@ -1118,27 +1108,6 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "mp3lame-encoder"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc8c8b5cdbe788ccd1098c3d3635298a011cffdebdd3460c9ca5060a7551557b"
-dependencies = [
- "libc",
- "mp3lame-sys",
-]
-
-[[package]]
-name = "mp3lame-sys"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cba8102a6f54cde0eeee828fa06c2c6353e384aa4a487c3f9197b39e576fb174"
-dependencies = [
- "autotools",
- "cc",
- "libc",
 ]
 
 [[package]]

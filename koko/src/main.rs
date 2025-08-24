@@ -57,7 +57,7 @@ enum Mode {
 
 #[derive(Parser, Debug)]
 #[command(name = "kokoros")]
-#[command(version = "0.2.0")]
+#[command(version = "0.3.0")]
 #[command(author = "Lucas Jin")]
 #[command(subcommand_negates_reqs = true)] // Allow subcommands to bypass required args
 struct Cli {

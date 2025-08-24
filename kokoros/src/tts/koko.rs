@@ -449,9 +449,10 @@ impl TTSKoko {
                 Err(e) => {
                     eprintln!("Error processing chunk: {:?}", e);
                     eprintln!("Chunk text was: {:?}", chunk);
-                    return Err(Box::new(std::io::Error::other(
-                        format!("Chunk processing failed: {:?}", e),
-                    )));
+                    return Err(Box::new(std::io::Error::other(format!(
+                        "Chunk processing failed: {:?}",
+                        e
+                    ))));
                 }
             }
         }
@@ -531,9 +532,10 @@ impl TTSKoko {
                 Err(e) => {
                     eprintln!("Error processing chunk: {:?}", e);
                     eprintln!("Chunk text was: {:?}", chunk);
-                    return Err(Box::new(std::io::Error::other(
-                        format!("Chunk processing failed: {:?}", e),
-                    )));
+                    return Err(Box::new(std::io::Error::other(format!(
+                        "Chunk processing failed: {:?}",
+                        e
+                    ))));
                 }
             }
         }
@@ -618,7 +620,8 @@ impl TTSKoko {
 
             for style in styles {
                 if let Some((name, portion)) = style.split_once('.')
-                    && let Ok(portion) = portion.parse::<f32>() {
+                    && let Ok(portion) = portion.parse::<f32>()
+                {
                     style_names.push(name);
                     style_portions.push(portion * 0.1);
                 }

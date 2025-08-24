@@ -1,11 +1,13 @@
+#![allow(clippy::invalid_regex)]
+
 use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
     static ref WHITESPACE_RE: Regex = Regex::new(r"[^\S \n]").unwrap();
     static ref MULTI_SPACE_RE: Regex = Regex::new(r"  +").unwrap();
-    static ref NEWLINE_SPACE_RE: Regex = Regex::new(r"(?<=\n) +(?=\n)").unwrap();
-    static ref DOCTOR_RE: Regex = Regex::new(r"\bD[Rr]\.(?= [A-Z])").unwrap();
+    static ref NEWLINE_SPACE_RE: Regex = Regex::new(r"\n +\n").unwrap();
+    static ref DOCTOR_RE: Regex = Regex::new(r"\bD[Rr]\. [A-Z]").unwrap();
     static ref MISTER_RE: Regex = Regex::new(r"\b(?:Mr\.|MR\.(?= [A-Z]))").unwrap();
     static ref MISS_RE: Regex = Regex::new(r"\b(?:Ms\.|MS\.(?= [A-Z]))").unwrap();
     static ref MRS_RE: Regex = Regex::new(r"\b(?:Mrs\.|MRS\.(?= [A-Z]))").unwrap();

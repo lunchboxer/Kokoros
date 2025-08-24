@@ -1,4 +1,4 @@
-use crate::onn::ort_koko::{self};
+use crate::model::KokoroModel;
 use crate::tts::tokenize::tokenize;
 use crate::utils::debug::format_debug_prefix;
 use lazy_static::lazy_static;
@@ -45,7 +45,7 @@ pub struct TTSRawAudioOpts<'a> {
 pub struct TTSKoko {
     #[allow(dead_code)]
     model_path: String,
-    model: Arc<Mutex<ort_koko::OrtKoko>>,
+    model: Arc<Mutex<KokoroModel>>,
     styles: HashMap<String, Vec<[[f32; 256]; 1]>>,
     init_config: InitConfig,
 }
@@ -176,11 +176,10 @@ impl TTSKoko {
         }
 
         let model = Arc::new(Mutex::new(
-            ort_koko::OrtKoko::new(resolved_model_path.to_string())
+            KokoroModel::new(resolved_model_path.to_string())
                 .expect("Failed to create Kokoro TTS model"),
         ));
-        // TODO: if(not streaming) { model.print_info(); }
-        // model.print_info();
+        // model.lock().unwrap().print_info();
 
         let styles = Self::load_voices(&resolved_voices_path);
 

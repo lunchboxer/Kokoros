@@ -1,4 +1,3 @@
-use atty;
 use clap::{CommandFactory, Parser, Subcommand};
 use kokoros::{
     tts::koko::{TTSKoko, TTSOpts},
@@ -171,10 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::collections::BTreeMap::new();
             for voice in &voices {
                 if let Some(prefix) = voice.get(0..2) {
-                    grouped_voices
-                        .entry(prefix)
-                        .or_insert_with(Vec::new)
-                        .push(voice);
+                    grouped_voices.entry(prefix).or_default().push(voice);
                 }
             }
 
@@ -321,16 +317,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     // Process the line and get audio data
-                    match tts.tts_raw_audio(
-                        &stripped_line,
-                        &lan,
-                        &style,
+                    match tts.tts_raw_audio_opts(kokoros::tts::koko::TTSRawAudioOpts {
+                        txt: stripped_line,
+                        lan: &lan,
+                        style_name: &style,
                         speed,
                         initial_silence,
-                        None,
-                        None,
-                        None,
-                    ) {
+                        request_id: None,
+                        instance_id: None,
+                        chunk_number: None,
+                    }) {
                         Ok(raw_audio) => {
                             // Write the raw audio samples directly
                             write_audio_chunk(&mut stdout, &raw_audio)?;

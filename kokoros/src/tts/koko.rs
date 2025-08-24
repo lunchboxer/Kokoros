@@ -29,6 +29,31 @@ pub struct TTSOpts<'a> {
     pub initial_silence: Option<usize>,
 }
 
+#[derive(Debug, Clone)]
+pub struct TTSRawAudioOpts<'a> {
+    pub txt: &'a str,
+    pub lan: &'a str,
+    pub style_name: &'a str,
+    pub speed: f32,
+    pub initial_silence: Option<usize>,
+    pub request_id: Option<&'a str>,
+    pub instance_id: Option<&'a str>,
+    pub chunk_number: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TTSRawAudioStreamingOpts<'a, F> {
+    pub txt: &'a str,
+    pub lan: &'a str,
+    pub style_name: &'a str,
+    pub speed: f32,
+    pub initial_silence: Option<usize>,
+    pub request_id: Option<&'a str>,
+    pub instance_id: Option<&'a str>,
+    pub chunk_number: Option<usize>,
+    pub chunk_callback: F,
+}
+
 #[derive(Clone)]
 pub struct TTSKoko {
     #[allow(dead_code)]
@@ -382,6 +407,23 @@ impl TTSKoko {
         chunks
     }
 
+    pub fn tts_raw_audio_opts(
+        &self,
+        opts: TTSRawAudioOpts,
+    ) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+        self.tts_raw_audio(
+            opts.txt,
+            opts.lan,
+            opts.style_name,
+            opts.speed,
+            opts.initial_silence,
+            opts.request_id,
+            opts.instance_id,
+            opts.chunk_number,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn tts_raw_audio(
         &self,
         txt: &str,
@@ -460,7 +502,27 @@ impl TTSKoko {
         Ok(final_audio)
     }
 
-    /// Streaming version that yields audio chunks as they're generated
+    pub fn tts_raw_audio_streaming_opts<F>(
+        &self,
+        opts: TTSRawAudioStreamingOpts<F>,
+    ) -> Result<(), Box<dyn std::error::Error>>
+    where
+        F: FnMut(Vec<f32>) -> Result<(), Box<dyn std::error::Error>>,
+    {
+        self.tts_raw_audio_streaming(
+            opts.txt,
+            opts.lan,
+            opts.style_name,
+            opts.speed,
+            opts.initial_silence,
+            opts.request_id,
+            opts.instance_id,
+            opts.chunk_number,
+            opts.chunk_callback,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn tts_raw_audio_streaming<F>(
         &self,
         txt: &str,
@@ -555,16 +617,16 @@ impl TTSKoko {
             initial_silence,
         }: TTSOpts,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let audio = self.tts_raw_audio(
+        let audio = self.tts_raw_audio_opts(TTSRawAudioOpts {
             txt,
             lan,
             style_name,
             speed,
             initial_silence,
-            None,
-            None,
-            None,
-        )?;
+            request_id: None,
+            instance_id: None,
+            chunk_number: None,
+        })?;
 
         // Save to file
         if mono {

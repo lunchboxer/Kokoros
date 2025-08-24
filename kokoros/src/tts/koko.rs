@@ -185,7 +185,7 @@ impl TTSKoko {
 
         // First split by sentences - using common sentence ending punctuation
         let sentences: Vec<&str> = text
-            .split(|c| c == '.' || c == '?' || c == '!' || c == ';')
+            .split(['.', '?', '!', ';'])
             .filter(|s| !s.trim().is_empty())
             .collect();
 
@@ -275,7 +275,7 @@ impl TTSKoko {
 
         // Split by sentence-ending punctuation first
         let sentences: Vec<&str> = text
-            .split(|c| c == '.' || c == '!' || c == '?')
+            .split(['.', '!', '?'])
             .filter(|s| !s.trim().is_empty())
             .collect();
 
@@ -358,7 +358,7 @@ impl TTSKoko {
             let mut current_word_count = 0;
 
             for word in words {
-                if current_word_count + 1 <= max_words {
+                if current_word_count < max_words {
                     if current_chunk.is_empty() {
                         current_chunk = word.to_string();
                     } else {

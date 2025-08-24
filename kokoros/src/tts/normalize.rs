@@ -31,9 +31,9 @@ pub fn normalize_text(text: &str) -> String {
     let mut text = text.to_string();
 
     // Replace special quotes and brackets
-    text = text.replace('\u{2018}', "'").replace('\u{2019}', "'");
+    text = text.replace(['\u{2018}', '\u{2019}'], "'");
     text = text.replace('«', "\u{201C}").replace('»', "\u{201D}");
-    text = text.replace('\u{201C}', "\"").replace('\u{201D}', "\"");
+    text = text.replace(['\u{201C}', '\u{201D}'], "\"");
     text = text.replace('(', "«").replace(')', "»");
 
     // Replace Chinese/Japanese punctuation

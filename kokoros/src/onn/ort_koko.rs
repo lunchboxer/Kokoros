@@ -78,7 +78,7 @@ impl OrtKoko {
                 .expect("Failed to extract tensor");
 
             // Convert Shape and &[f32] to ArrayBase<OwnedRepr<f32>, IxDyn>
-            let shape_vec: Vec<usize> = shape.into_iter().map(|&i| i as usize).collect();
+            let shape_vec: Vec<usize> = shape.iter().map(|&i| i as usize).collect();
             let data_vec: Vec<f32> = data.to_vec();
             let debug_prefix = format_debug_prefix(request_id, instance_id);
             let chunk_info = chunk_number

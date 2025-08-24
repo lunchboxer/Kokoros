@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./koko-redux.webp" alt="Banner" width="400">
+  <img src="./koko-redux.webp" alt="Banner" width="600">
 </div>
 
 # Koko-redux
@@ -25,7 +25,7 @@ This will:
 - Download the voices data file (`data/voices-v1.0.bin`)
 - Verify the integrity of downloaded files
 
-3. (Optional) Install the binary and voice data:
+2. (Optional) Install the binary and voice data:
 
 For user-wide installation (default):
 ```bash

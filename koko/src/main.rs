@@ -131,10 +131,6 @@ struct Cli {
     #[arg(long = "initial-silence", value_name = "INITIAL_SILENCE")]
     initial_silence: Option<usize>,
 
-    /// Number of TTS instances for parallel processing
-    #[arg(long = "instances", value_name = "INSTANCES", default_value_t = 2)]
-    instances: usize,
-
     #[command(subcommand)]
     mode: Option<Mode>,
 }
@@ -159,7 +155,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             speed,
             initial_silence,
             mono,
-            instances: _, // Ignore unused instances variable
             mode,
         } = Cli::parse();
 

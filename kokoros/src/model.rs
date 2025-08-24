@@ -116,8 +116,7 @@ impl KokoroModel {
             shape_vec,
             data_vec.len()
         );
-        let output_array =
-            ArrayBase::<OwnedRepr<f32>, IxDyn>::from_shape_vec(shape_vec, data_vec)?;
+        let output_array = ArrayBase::<OwnedRepr<f32>, IxDyn>::from_shape_vec(shape_vec, data_vec)?;
 
         Ok(output_array)
     }

@@ -75,26 +75,7 @@ For a file with 3 lines of text, by default, speech audio files `./output_0.wav`
 koko file lyrics.txt -o "song/lyric_{line}.wav"
 ```
 
-### Streaming
 
-The `stream` option will start the program, reading for lines of input from stdin and outputting WAV audio to stdout.
-
-Use it in conjunction with piping.
-
-#### Typing manually
-
-```
-koko stream > live-audio.wav
-# Start typing some text to generate speech for and hit enter to submit
-# Speech will append to `live-audio.wav` as it is generated
-# Hit Ctrl D to exit
-```
-
-#### Input from another source
-
-```
-echo "Suppose some other program was outputting lines of text" | koko stream > programmatic-audio.wav
-```
 
 ### With docker
 

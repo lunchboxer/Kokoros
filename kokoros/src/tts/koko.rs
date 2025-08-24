@@ -41,19 +41,6 @@ pub struct TTSRawAudioOpts<'a> {
     pub chunk_number: Option<usize>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TTSRawAudioStreamingOpts<'a, F> {
-    pub txt: &'a str,
-    pub lan: &'a str,
-    pub style_name: &'a str,
-    pub speed: f32,
-    pub initial_silence: Option<usize>,
-    pub request_id: Option<&'a str>,
-    pub instance_id: Option<&'a str>,
-    pub chunk_number: Option<usize>,
-    pub chunk_callback: F,
-}
-
 #[derive(Clone)]
 pub struct TTSKoko {
     #[allow(dead_code)]
@@ -81,8 +68,8 @@ impl Default for InitConfig {
 }
 
 impl TTSKoko {
-    pub async fn new(model_path: &str, voices_path: &str) -> Self {
-        Self::from_config(model_path, voices_path, InitConfig::default()).await
+    pub fn new(model_path: &str, voices_path: &str) -> Self {
+        Self::from_config(model_path, voices_path, InitConfig::default())
     }
 
     /// Find file in standard locations
@@ -156,7 +143,7 @@ impl TTSKoko {
         Self::find_file_in_standard_locations(model_path, "model")
     }
 
-    pub async fn from_config(model_path: &str, voices_path: &str, cfg: InitConfig) -> Self {
+    pub fn from_config(model_path: &str, voices_path: &str, cfg: InitConfig) -> Self {
         // Find model file in standard locations
         let resolved_model_path = Self::find_model_file(model_path);
 
@@ -293,120 +280,6 @@ impl TTSKoko {
         chunks
     }
 
-    /// Smart word-based chunking for async streaming
-    /// Creates chunks based on natural speech boundaries using word count and punctuation
-    pub fn split_text_into_speech_chunks(&self, text: &str, max_words: usize) -> Vec<String> {
-        let mut chunks = Vec::new();
-
-        // Split by sentence-ending punctuation first
-        let sentences: Vec<&str> = text
-            .split(['.', '!', '?'])
-            .filter(|s| !s.trim().is_empty())
-            .collect();
-
-        for sentence in sentences {
-            let sentence = sentence.trim();
-            if sentence.is_empty() {
-                continue;
-            }
-
-            // Count words in this sentence
-            let words: Vec<&str> = sentence.split_whitespace().collect();
-            let word_count = words.len();
-
-            if word_count <= max_words {
-                // Small sentence - add as complete chunk (preserve original punctuation)
-                chunks.push(format!("{}.", sentence));
-            } else {
-                // Large sentence - split by punctuation marks while preserving them
-                let mut sub_clauses = Vec::new();
-                let mut current_pos = 0;
-
-                for (i, ch) in sentence.char_indices() {
-                    if ch == ',' || ch == ';' || ch == ':' {
-                        if i > current_pos {
-                            let clause_with_punct = format!("{}{}", &sentence[current_pos..i], ch);
-                            sub_clauses.push(clause_with_punct);
-                        }
-                        current_pos = i + 1;
-                    }
-                }
-
-                // Add remaining text
-                if current_pos < sentence.len() {
-                    sub_clauses.push(sentence[current_pos..].to_string());
-                }
-
-                let sub_clauses: Vec<&str> = sub_clauses
-                    .iter()
-                    .map(|s| s.trim())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-
-                let mut current_chunk = String::new();
-                let mut current_word_count = 0;
-
-                for clause in sub_clauses {
-                    let clause = clause.trim();
-                    let clause_words: Vec<&str> = clause.split_whitespace().collect();
-                    let clause_word_count = clause_words.len();
-
-                    if current_word_count + clause_word_count <= max_words {
-                        // Add clause to current chunk (preserve original punctuation)
-                        if current_chunk.is_empty() {
-                            current_chunk = clause.to_string();
-                        } else {
-                            current_chunk = format!("{} {}", current_chunk, clause);
-                        }
-                        current_word_count += clause_word_count;
-                    } else {
-                        // Start new chunk (preserve original punctuation)
-                        if !current_chunk.is_empty() {
-                            chunks.push(current_chunk);
-                        }
-                        current_chunk = clause.to_string();
-                        current_word_count = clause_word_count;
-                    }
-                }
-
-                // Add final chunk (preserve original punctuation)
-                if !current_chunk.is_empty() {
-                    chunks.push(current_chunk);
-                }
-            }
-        }
-
-        // If no sentences found, fall back to word-based chunking
-        if chunks.is_empty() {
-            let words: Vec<&str> = text.split_whitespace().collect();
-            let mut current_chunk = String::new();
-            let mut current_word_count = 0;
-
-            for word in words {
-                if current_word_count < max_words {
-                    if current_chunk.is_empty() {
-                        current_chunk = word.to_string();
-                    } else {
-                        current_chunk = format!("{} {}", current_chunk, word);
-                    }
-                    current_word_count += 1;
-                } else {
-                    if !current_chunk.is_empty() {
-                        chunks.push(current_chunk);
-                    }
-                    current_chunk = word.to_string();
-                    current_word_count = 1;
-                }
-            }
-
-            if !current_chunk.is_empty() {
-                chunks.push(current_chunk);
-            }
-        }
-
-        chunks
-    }
-
     pub fn tts_raw_audio_opts(
         &self,
         opts: TTSRawAudioOpts,
@@ -500,109 +373,6 @@ impl TTSKoko {
         }
 
         Ok(final_audio)
-    }
-
-    pub fn tts_raw_audio_streaming_opts<F>(
-        &self,
-        opts: TTSRawAudioStreamingOpts<F>,
-    ) -> Result<(), Box<dyn std::error::Error>>
-    where
-        F: FnMut(Vec<f32>) -> Result<(), Box<dyn std::error::Error>>,
-    {
-        self.tts_raw_audio_streaming(
-            opts.txt,
-            opts.lan,
-            opts.style_name,
-            opts.speed,
-            opts.initial_silence,
-            opts.request_id,
-            opts.instance_id,
-            opts.chunk_number,
-            opts.chunk_callback,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn tts_raw_audio_streaming<F>(
-        &self,
-        txt: &str,
-        lan: &str,
-        style_name: &str,
-        speed: f32,
-        initial_silence: Option<usize>,
-        request_id: Option<&str>,
-        instance_id: Option<&str>,
-        chunk_number: Option<usize>,
-        mut chunk_callback: F,
-    ) -> Result<(), Box<dyn std::error::Error>>
-    where
-        F: FnMut(Vec<f32>) -> Result<(), Box<dyn std::error::Error>>,
-    {
-        // Split text into appropriate chunks
-        let chunks = self.split_text_into_chunks(txt, 500); // Using 500 to leave 12 tokens of margin
-
-        for chunk in chunks {
-            // Convert chunk to phonemes
-            let phonemes = {
-                let _guard = ESPEAK_MUTEX.lock().unwrap();
-                text_to_phonemes(&chunk, lan, None, true, false)
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?
-                    .join("")
-            };
-            let debug_prefix = format_debug_prefix(request_id, instance_id);
-            let chunk_info = chunk_number
-                .map(|n| format!("Chunk: {}, ", n))
-                .unwrap_or_default();
-            tracing::debug!(
-                "{} {}text: '{}' -> phonemes: '{}'",
-                debug_prefix,
-                chunk_info,
-                chunk,
-                phonemes
-            );
-            let mut tokens = tokenize(&phonemes);
-
-            for _ in 0..initial_silence.unwrap_or(0) {
-                tokens.insert(0, 30);
-            }
-
-            // Get style vectors once
-            let styles = self.mix_styles(style_name, tokens.len())?;
-
-            // pad a 0 to start and end of tokens
-            let mut padded_tokens = vec![0];
-            for &token in &tokens {
-                padded_tokens.push(token);
-            }
-            padded_tokens.push(0);
-
-            let tokens = vec![padded_tokens];
-
-            match self.model.lock().unwrap().infer(
-                tokens,
-                styles.clone(),
-                speed,
-                request_id,
-                instance_id,
-                chunk_number,
-            ) {
-                Ok(chunk_audio) => {
-                    let chunk_audio: Vec<f32> = chunk_audio.iter().cloned().collect();
-                    // Yield this chunk via callback
-                    chunk_callback(chunk_audio)?;
-                }
-                Err(e) => {
-                    eprintln!("Error processing chunk: {:?}", e);
-                    eprintln!("Chunk text was: {:?}", chunk);
-                    return Err(Box::new(std::io::Error::other(format!(
-                        "Chunk processing failed: {:?}",
-                        e
-                    ))));
-                }
-            }
-        }
-
-        Ok(())
     }
 
     pub fn tts(

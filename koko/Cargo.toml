@@ -8,6 +8,6 @@ kokoros = { path = "../kokoros" }
 
 atty = "0.2"
 clap = { version = "4.5.39", features = ["derive"] }
-tokio = { version = "1.45.1", features = ["io-util", "rt-multi-thread", "io-std"] }
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

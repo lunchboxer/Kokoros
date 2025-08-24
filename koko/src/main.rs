@@ -1,13 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand};
-use kokoros::{
-    tts::koko::{TTSKoko, TTSOpts},
-    utils::wav::{WavHeader, write_audio_chunk},
-};
-use std::{
-    fs,
-    io::{Read, Write},
-};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use kokoros::tts::koko::{TTSKoko, TTSOpts};
+use std::{fs, io::Read};
 use tracing_subscriber::fmt::time::FormatTime;
 
 /// Custom Unix timestamp formatter for tracing logs
@@ -56,10 +49,6 @@ enum Mode {
         )]
         save_path_format: String,
     },
-
-    /// Continuously read from stdin to generate speech, outputting to stdout, for each line
-    #[command(aliases = ["stdio", "stdin", "-"], long_flag_aliases = ["stdio", "stdin"])]
-    Stream,
 
     /// List all available voices
     #[command(alias = "v", long_flag_alias = "voices", short_flag_alias = 'v')]
@@ -144,137 +133,94 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let Cli {
-            lan,
-            model_path,
-            data_path,
-            style,
-            speed,
-            initial_silence,
-            mono,
-            mode,
-        } = Cli::parse();
+    let Cli {
+        lan,
+        model_path,
+        data_path,
+        style,
+        speed,
+        initial_silence,
+        mono,
+        mode,
+    } = Cli::parse();
 
-        // Handle the voices command separately to avoid initializing the full TTS system
-        if let Some(Mode::Voices) = mode {
-            // For the voices command, we still need to load the voices data but we'll handle the display ourselves
-            let tts = TTSKoko::new(&model_path, &data_path).await;
-            let voices = tts.get_available_voices();
-            println!("Available voices ({} total):", voices.len());
-            println!("==========================================");
+    // Handle the voices command separately to avoid initializing the full TTS system
+    if let Some(Mode::Voices) = mode {
+        // For the voices command, we still need to load the voices data but we'll handle the display ourselves
+        let tts = TTSKoko::new(&model_path, &data_path);
+        let voices = tts.get_available_voices();
+        println!("Available voices ({} total):", voices.len());
+        println!("==========================================");
 
-            // Group voices by prefix for better organization
-            let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> =
-                std::collections::BTreeMap::new();
-            for voice in &voices {
-                if let Some(prefix) = voice.get(0..2) {
-                    grouped_voices.entry(prefix).or_default().push(voice);
-                }
+        // Group voices by prefix for better organization
+        let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> =
+            std::collections::BTreeMap::new();
+        for voice in &voices {
+            if let Some(prefix) = voice.get(0..2) {
+                grouped_voices.entry(prefix).or_default().push(voice);
             }
-
-            for (prefix, voices_in_group) in grouped_voices {
-                let category = match prefix {
-                    "af" => "American Female(af)",
-                    "am" => "American Male(am)",
-                    "bf" => "British Female(bf)",
-                    "bm" => "British Male(bm)",
-                    "ef" => "European Female(ef)",
-                    "em" => "European Male(em)",
-                    "ff" => "French Female(ff)",
-                    "hf" => "Hindi Female(hf)",
-                    "hm" => "Hindi Male(hm)",
-                    "if" => "Italian Female(if)",
-                    "im" => "Italian Male(im)",
-                    "jf" => "Japanese Female(jf)",
-                    "jm" => "Japanese Male(jm)",
-                    "pf" => "Portuguese Female(pf)",
-                    "pm" => "Portuguese Male(pm)",
-                    "zf" => "Chinese Female(zf)",
-                    "zm" => "Chinese Male(zm)",
-                    _ => prefix,
-                };
-
-                let voices_str = voices_in_group.join(", ");
-                println!("{}: {}", category, voices_str);
-            }
-
-            println!("==========================================");
-            return Ok(());
         }
 
-        // If no mode is specified, default to Text mode
-        let mode = mode.unwrap_or(Mode::Text {
-            text: None,
-            save_path: "./output.wav".to_string(),
-        });
+        for (prefix, voices_in_group) in grouped_voices {
+            let category = match prefix {
+                "af" => "American Female(af)",
+                "am" => "American Male(am)",
+                "bf" => "British Female(bf)",
+                "bm" => "British Male(bm)",
+                "ef" => "European Female(ef)",
+                "em" => "European Male(em)",
+                "ff" => "French Female(ff)",
+                "hf" => "Hindi Female(hf)",
+                "hm" => "Hindi Male(hm)",
+                "if" => "Italian Female(if)",
+                "im" => "Italian Male(im)",
+                "jf" => "Japanese Female(jf)",
+                "jm" => "Japanese Male(jm)",
+                "pf" => "Portuguese Female(pf)",
+                "pm" => "Portuguese Male(pm)",
+                "zf" => "Chinese Female(zf)",
+                "zm" => "Chinese Male(zm)",
+                _ => prefix,
+            };
 
-        let tts = TTSKoko::new(&model_path, &data_path).await;
+            let voices_str = voices_in_group.join(", ");
+            println!("{}: {}", category, voices_str);
+        }
 
-        match mode {
-            Mode::File {
-                input_path,
-                save_path_format,
-            } => {
-                let file_content = fs::read_to_string(input_path)?;
-                let lines: Vec<&str> = file_content.lines().collect();
-                let total_lines = lines.len();
-                // Calculate the number of digits needed for zero-padding
-                let padding_width = total_lines.to_string().len();
+        println!("==========================================");
+        return Ok(());
+    }
 
-                for (i, line) in lines.iter().enumerate() {
-                    let stripped_line = line.trim();
-                    if stripped_line.is_empty() {
-                        continue;
-                    }
+    // If no mode is specified, default to Text mode
+    let mode = mode.unwrap_or(Mode::Text {
+        text: None,
+        save_path: "./output.wav".to_string(),
+    });
 
-                    // Use zero-padded line numbers for proper alphanumeric sorting
-                    let line_number = format!("{:0width$}", i, width = padding_width);
-                    let save_path = save_path_format.replace("{line}", &line_number);
-                    tts.tts(TTSOpts {
-                        txt: stripped_line,
-                        lan: &lan,
-                        style_name: &style,
-                        save_path: &save_path,
-                        mono,
-                        speed,
-                        initial_silence,
-                    })?;
-                }
-            }
+    let tts = TTSKoko::new(&model_path, &data_path);
 
-            Mode::Text { text, save_path } => {
-                // If no text is provided, check stdin
-                let text = if let Some(t) = text {
-                    t
-                } else {
-                    // Check if stdin is available
-                    if atty::is(atty::Stream::Stdin) {
-                        // No stdin input and no text argument, show error and help
-                        eprintln!("Error: Missing input text.");
-                        eprintln!();
-                        Cli::command().print_help().unwrap();
-                        std::process::exit(1);
-                    } else {
-                        // Read from stdin
-                        let mut stdin = std::io::stdin();
-                        let mut input = String::new();
-                        stdin.read_to_string(&mut input)?;
-                        input
-                    }
-                };
+    match mode {
+        Mode::File {
+            input_path,
+            save_path_format,
+        } => {
+            let file_content = fs::read_to_string(input_path)?;
+            let lines: Vec<&str> = file_content.lines().collect();
+            let total_lines = lines.len();
+            // Calculate the number of digits needed for zero-padding
+            let padding_width = total_lines.to_string().len();
 
-                if text.trim().is_empty() {
-                    eprintln!("Error: Empty input text.");
-                    eprintln!();
-                    Cli::command().print_help().unwrap();
-                    std::process::exit(1);
+            for (i, line) in lines.iter().enumerate() {
+                let stripped_line = line.trim();
+                if stripped_line.is_empty() {
+                    continue;
                 }
 
-                let s = std::time::Instant::now();
+                // Use zero-padded line numbers for proper alphanumeric sorting
+                let line_number = format!("{:0width$}", i, width = padding_width);
+                let save_path = save_path_format.replace("{line}", &line_number);
                 tts.tts(TTSOpts {
-                    txt: &text,
+                    txt: stripped_line,
                     lan: &lan,
                     style_name: &style,
                     save_path: &save_path,
@@ -282,63 +228,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     speed,
                     initial_silence,
                 })?;
-                println!("Time taken: {:?}", s.elapsed());
-                let words_per_second =
-                    text.split_whitespace().count() as f32 / s.elapsed().as_secs_f32();
-                println!("Words per second: {:.2}", words_per_second);
-            }
-
-            Mode::Voices => {
-                // This case is handled earlier, so we just return
-                return Ok(());
-            }
-
-            Mode::Stream => {
-                let stdin = tokio::io::stdin();
-                let reader = BufReader::new(stdin);
-                let mut lines = reader.lines();
-
-                // Use std::io::stdout() for sync writing
-                let mut stdout = std::io::stdout();
-
-                eprintln!(
-                    "Entering streaming mode. Type text and press Enter. Use Ctrl+D to exit."
-                );
-
-                // Write WAV header first
-                let header = WavHeader::new(1, 24000, 32);
-                header.write_header(&mut stdout)?;
-                stdout.flush()?;
-
-                while let Some(line) = lines.next_line().await? {
-                    let stripped_line = line.trim();
-                    if stripped_line.is_empty() {
-                        continue;
-                    }
-
-                    // Process the line and get audio data
-                    match tts.tts_raw_audio_opts(kokoros::tts::koko::TTSRawAudioOpts {
-                        txt: stripped_line,
-                        lan: &lan,
-                        style_name: &style,
-                        speed,
-                        initial_silence,
-                        request_id: None,
-                        instance_id: None,
-                        chunk_number: None,
-                    }) {
-                        Ok(raw_audio) => {
-                            // Write the raw audio samples directly
-                            write_audio_chunk(&mut stdout, &raw_audio)?;
-                            stdout.flush()?;
-                            eprintln!("Audio written to stdout. Ready for another line of text.");
-                        }
-                        Err(e) => eprintln!("Error processing line: {}", e),
-                    }
-                }
             }
         }
 
-        Ok(())
-    })
+        Mode::Text { text, save_path } => {
+            // If no text is provided, check stdin
+            let text = if let Some(t) = text {
+                t
+            } else {
+                // Check if stdin is available
+                if atty::is(atty::Stream::Stdin) {
+                    // No stdin input and no text argument, show error and help
+                    eprintln!("Error: Missing input text.");
+                    eprintln!();
+                    Cli::command().print_help().unwrap();
+                    std::process::exit(1);
+                } else {
+                    // Read from stdin
+                    let mut stdin = std::io::stdin();
+                    let mut input = String::new();
+                    stdin.read_to_string(&mut input)?;
+                    input
+                }
+            };
+
+            if text.trim().is_empty() {
+                eprintln!("Error: Empty input text.");
+                eprintln!();
+                Cli::command().print_help().unwrap();
+                std::process::exit(1);
+            }
+
+            let s = std::time::Instant::now();
+            tts.tts(TTSOpts {
+                txt: &text,
+                lan: &lan,
+                style_name: &style,
+                save_path: &save_path,
+                mono,
+                speed,
+                initial_silence,
+            })?;
+            println!("Time taken: {:?}", s.elapsed());
+            let words_per_second =
+                text.split_whitespace().count() as f32 / s.elapsed().as_secs_f32();
+            println!("Words per second: {:.2}", words_per_second);
+        }
+
+        Mode::Voices => {
+            // This case is handled earlier, so we just return
+            return Ok(());
+        }
+    }
+
+    Ok(())
 }

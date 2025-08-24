@@ -1,6 +1,5 @@
 use crate::onn::ort_koko::{self};
 use crate::tts::tokenize::tokenize;
-use crate::utils;
 use crate::utils::debug::format_debug_prefix;
 use lazy_static::lazy_static;
 use ndarray::Array3;
@@ -78,7 +77,11 @@ impl TTSKoko {
         let search_paths = match file_type {
             "model" => vec![
                 // User-specific data directory
-                format!("{}/.local/share/koko/{}", env::var("HOME").unwrap_or_else(|_| ".".to_string()), file_name),
+                format!(
+                    "{}/.local/share/koko/{}",
+                    env::var("HOME").unwrap_or_else(|_| ".".to_string()),
+                    file_name
+                ),
                 // System-wide data directories
                 format!("/usr/local/share/koko/{}", file_name),
                 format!("/usr/share/koko/{}", file_name),
@@ -87,7 +90,11 @@ impl TTSKoko {
             ],
             "voices" => vec![
                 // User-specific data directory
-                format!("{}/.local/share/koko/{}", env::var("HOME").unwrap_or_else(|_| ".".to_string()), file_name),
+                format!(
+                    "{}/.local/share/koko/{}",
+                    env::var("HOME").unwrap_or_else(|_| ".".to_string()),
+                    file_name
+                ),
                 // System-wide data directories
                 format!("/usr/local/share/koko/{}", file_name),
                 format!("/usr/share/koko/{}", file_name),
@@ -106,7 +113,11 @@ impl TTSKoko {
         }
 
         // If none exist, return the original path for error handling upstream
-        tracing::warn!("{} file not found in standard locations, using provided path: {}", file_type, file_path);
+        tracing::warn!(
+            "{} file not found in standard locations, using provided path: {}",
+            file_type,
+            file_path
+        );
         file_path.to_string()
     }
 
@@ -125,18 +136,31 @@ impl TTSKoko {
         let resolved_model_path = Self::find_model_file(model_path);
 
         if !Path::new(&resolved_model_path).exists() {
-            utils::fileio::download_file_from_url(cfg.model_url.as_str(), &resolved_model_path)
-                .await
-                .expect("download model failed.");
+            eprintln!("Model file not found: {}", resolved_model_path);
+            eprintln!("Please download the model file from: {}", cfg.model_url);
+            eprintln!("And place it at one of these locations:");
+            eprintln!("  - {}", resolved_model_path);
+            eprintln!("  - ~/.local/share/koko/kokoro-v1.0.onnx");
+            eprintln!("  - /usr/local/share/koko/kokoro-v1.0.onnx");
+            eprintln!("  - /usr/share/koko/kokoro-v1.0.onnx");
+            std::process::exit(1);
         }
 
         // Find voices file in standard locations
         let resolved_voices_path = Self::find_voices_file(voices_path);
 
         if !Path::new(&resolved_voices_path).exists() {
-            utils::fileio::download_file_from_url(cfg.voices_url.as_str(), &resolved_voices_path)
-                .await
-                .expect("download voices data file failed.");
+            eprintln!("Voices data file not found: {}", resolved_voices_path);
+            eprintln!(
+                "Please download the voices data file from: {}",
+                cfg.voices_url
+            );
+            eprintln!("And place it at one of these locations:");
+            eprintln!("  - {}", resolved_voices_path);
+            eprintln!("  - ~/.local/share/koko/voices-v1.0.bin");
+            eprintln!("  - /usr/local/share/koko/voices-v1.0.bin");
+            eprintln!("  - /usr/share/koko/voices-v1.0.bin");
+            std::process::exit(1);
         }
 
         let model = Arc::new(Mutex::new(
@@ -654,5 +678,3 @@ impl TTSKoko {
         voices
     }
 }
-
-    

@@ -7,8 +7,8 @@ use ort::{
 };
 
 use super::ort_base;
-use ort_base::OrtBase;
 use crate::utils::debug::format_debug_prefix;
+use ort_base::OrtBase;
 
 pub struct OrtKoko {
     sess: Option<Session>,
@@ -38,13 +38,21 @@ impl OrtKoko {
         instance_id: Option<&str>,
         chunk_number: Option<usize>,
     ) -> Result<ArrayBase<OwnedRepr<f32>, IxDyn>, Box<dyn std::error::Error>> {
-
         let shape = [tokens.len(), tokens[0].len()];
         let tokens_flat: Vec<i64> = tokens.into_iter().flatten().collect();
-        
+
         let debug_prefix = format_debug_prefix(request_id, instance_id);
-        let chunk_info = chunk_number.map(|n| format!("Chunk: {}, ", n)).unwrap_or_default();
-        tracing::debug!("{} {}inference input: tokens_shape={:?}, tokens_count={}, styles_shape={:?}", debug_prefix, chunk_info, shape, tokens_flat.len(), [styles.len(), styles[0].len()]);
+        let chunk_info = chunk_number
+            .map(|n| format!("Chunk: {}, ", n))
+            .unwrap_or_default();
+        tracing::debug!(
+            "{} {}inference input: tokens_shape={:?}, tokens_count={}, styles_shape={:?}",
+            debug_prefix,
+            chunk_info,
+            shape,
+            tokens_flat.len(),
+            [styles.len(), styles[0].len()]
+        );
         let tokens = Tensor::from_array((shape, tokens_flat))?;
         let tokens_value: SessionInputValue = SessionInputValue::Owned(Value::from(tokens));
 
@@ -73,9 +81,18 @@ impl OrtKoko {
             let shape_vec: Vec<usize> = shape.into_iter().map(|&i| i as usize).collect();
             let data_vec: Vec<f32> = data.to_vec();
             let debug_prefix = format_debug_prefix(request_id, instance_id);
-            let chunk_info = chunk_number.map(|n| format!("Chunk: {}, ", n)).unwrap_or_default();
-            tracing::debug!("{} {}inference output: audio_shape={:?}, sample_count={}", debug_prefix, chunk_info, shape_vec, data_vec.len());
-            let output_array = ArrayBase::<OwnedRepr<f32>, IxDyn>::from_shape_vec(shape_vec, data_vec)?;
+            let chunk_info = chunk_number
+                .map(|n| format!("Chunk: {}, ", n))
+                .unwrap_or_default();
+            tracing::debug!(
+                "{} {}inference output: audio_shape={:?}, sample_count={}",
+                debug_prefix,
+                chunk_info,
+                shape_vec,
+                data_vec.len()
+            );
+            let output_array =
+                ArrayBase::<OwnedRepr<f32>, IxDyn>::from_shape_vec(shape_vec, data_vec)?;
 
             Ok(output_array)
         } else {

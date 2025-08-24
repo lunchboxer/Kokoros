@@ -1,12 +1,12 @@
 use atty;
-use clap::{Parser, Subcommand, CommandFactory};
+use clap::{CommandFactory, Parser, Subcommand};
 use kokoros::{
     tts::koko::{TTSKoko, TTSOpts},
-    utils::wav::{write_audio_chunk, WavHeader},
+    utils::wav::{WavHeader, write_audio_chunk},
 };
 use std::{
     fs,
-    io::{Write, Read},
+    io::{Read, Write},
 };
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tracing_subscriber::fmt::time::FormatTime;
@@ -141,10 +141,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_timer(UnixTimestampFormatter)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
-    
+
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
         let Cli {
@@ -165,9 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let voices = tts.get_available_voices();
             println!("Available voices ({} total):", voices.len());
             println!("==========================================");
-            
+
             // Group voices by prefix for better organization
-            let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> = 
+            let mut grouped_voices: std::collections::BTreeMap<&str, Vec<&str>> =
                 std::collections::BTreeMap::new();
             for voice in &voices {
                 if let Some(prefix) = voice.get(0..2) {
@@ -203,15 +203,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let voices_str = voices_in_group.join(", ");
                 println!("{}: {}", category, voices_str);
             }
-            
+
             println!("==========================================");
             return Ok(());
         }
 
         // If no mode is specified, default to Text mode
-        let mode = mode.unwrap_or(Mode::Text { 
-            text: None, 
-            save_path: "./output.wav".to_string() 
+        let mode = mode.unwrap_or(Mode::Text {
+            text: None,
+            save_path: "./output.wav".to_string(),
         });
 
         let tts = TTSKoko::new(&model_path, &data_path).await;
@@ -321,7 +321,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     // Process the line and get audio data
-                    match tts.tts_raw_audio(&stripped_line, &lan, &style, speed, initial_silence, None, None, None) {
+                    match tts.tts_raw_audio(
+                        &stripped_line,
+                        &lan,
+                        &style,
+                        speed,
+                        initial_silence,
+                        None,
+                        None,
+                        None,
+                    ) {
                         Ok(raw_audio) => {
                             // Write the raw audio samples directly
                             write_audio_chunk(&mut stdout, &raw_audio)?;

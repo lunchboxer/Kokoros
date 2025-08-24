@@ -1,8 +1,8 @@
 <div align="center">
   <img src="./koko-redux.webp" alt="Banner" width="400">
 </div>
-<br>
-<h1 align="center">Koko-redux</h1>
+
+# Koko-redux
 
 [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is the best available open-source TTS model. This repo provides **insanely fast Kokoro infer in Rust**. Build and enjoy the `koko` command-line utility.
 

@@ -4,29 +4,12 @@
 <br>
 <h1 align="center">Kokoro Rust</h1>
 
-[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is the best available open-source TTS model. This repo provides **insanely fast Kokoro infer in Rust**, you can now have your built TTS engine powered by Kokoro and infer fast by only a command of `koko`.
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is the best available open-source TTS model. This repo provides **insanely fast Kokoro infer in Rust**. Build and enjoy the `koko` command-line utility.
 
 `kokoros` is a `rust` crate that provides easy to use TTS ability.
 One can directly call `koko` in terminal to synthesize audio.
 
-`kokoros` uses a relative small model 87M params, while results in extremly good quality voices results.
-
-Languge support:
-
-- [x] English;
-- [x] Chinese (partly);
-- [x] Japanese (partly);
-- [x] German (partly);
-
-## Updates
-
-- **_`2025.07.12`_**: 🔥🔥🔥 **HTTP API streaming and parallel processing infrastructure.** OpenAI-compatible server supports streaming audio generation with `"stream": true` achieving 1-2s time-to-first-audio, work-in-progress parallel TTS processing with `--instances` flag support, improved logging system with Unix timestamps, and natural-sounding voice generation through advanced chunking;
-- **_`2025.01.22`_**: 🔥🔥🔥 **CLI streaming mode supported.** You can now using `--stream` to have fun with stream mode, kudos to [mroigo](https://github.com/mrorigo);
-- **_`2025.01.17`_**: 🔥🔥🔥 Style mixing supported! Now, listen the output AMSR effect by simply specific style: `af_sky.4+af_nicole.5`;
-- **_`2025.01.15`_**: OpenAI compatible server supported, openai format still under polish!
-- **_`2025.01.15`_**: Phonemizer supported! Now `Kokoros` can inference E2E without anyother dependencies! Kudos to [@tstm](https://github.com/tstm);
-- **_`2025.01.13`_**: Espeak-ng tokenizer and phonemizer supported! Kudos to [@mindreframer](https://github.com/mindreframer) ;
-- **_`2025.01.12`_**: Released `Kokoros`;
+`kokoros` uses a relative small model 87M params while providing high quality voices results.
 
 ## Installation
 
@@ -41,12 +24,6 @@ This will:
 - Download the Kokoro ONNX model (`checkpoints/kokoro-v1.0.onnx`)
 - Download the voices data file (`data/voices-v1.0.bin`)
 - Verify the integrity of downloaded files
-
-2. (Optional) Install Python dependencies for OpenAI client examples:
-
-```bash
-pip install -r scripts/requirements.txt
-```
 
 3. (Optional) Install the binary and voice data:
 
@@ -64,6 +41,8 @@ This will install:
 - The `koko` binary to `~/.local/bin` (user) or `/usr/local/bin` (system)
 - The voice data to `~/.local/share/koko` (user) or `/usr/local/share/koko` (system)
 
+The `koko` binary can be used without installation at `./target/release/koko`.
+
 ## Usage
 
 ### View available options
@@ -72,22 +51,10 @@ This will install:
 koko -h
 ```
 
-or if not installed:
-
-```bash
-./target/release/koko -h
-```
-
 ### Generate speech for some text
 
 ```
 koko text "Hello, this is a TTS test"
-```
-
-or if not installed:
-
-```
-./target/release/koko text "Hello, this is a TTS test"
 ```
 
 The generated audio will be saved to `./output.wav` by default. You can customize the save location with the `--output` or `-o` option:
@@ -100,12 +67,6 @@ koko text "I hope you're having a great day today!" --output greeting.wav
 
 ```
 koko file poem.txt
-```
-
-or if not installed:
-
-```
-./target/release/koko file poem.txt
 ```
 
 For a file with 3 lines of text, by default, speech audio files `./output_0.wav`, `./output_1.wav`, `./output_2.wav` will be outputted. For files with 10 or more lines, zero-padding is automatically applied to ensure proper alphanumeric sorting (e.g., `./output_00.wav`, `./output_01.wav`, ..., `./output_10.wav`). You can customize the save location with the `--output` or `-o` option, using `{line}` as the line number:
@@ -129,20 +90,8 @@ koko openai
 koko openai --instances 4
 ```
 
-or if not installed:
+#### How to determine the optimal number of instances for your system configuration?
 
-```
-# Best 0.5-2 seconds time-to-first-audio (lowest latency)
-./target/release/koko openai --instances 1
-
-# Balanced performance (default, 2 instances, usually best throughput for CPU processing)
-./target/release/koko openai
-
-# Best total processing time (Diminishing returns on CPU processing observed on Mac M2)
-./target/release/koko openai --instances 4
-```
-
-**How to determine the optimal number of instances for your system configuration?**
 Choose your configuration based on use case:
 - Single instance for real-time applications requiring immediate audio response irrespective of system configuration.
 - Multiple instances for batch processing where total completion time matters more than initial latency.
@@ -161,64 +110,6 @@ Choose your configuration based on use case:
 
 *Note: The `--instances` flag is currently supported in API server mode. CLI text commands will support parallel processing in future releases.*
 
-### OpenAI-Compatible Server
-
-1. Start the server:
-
-```bash
-koko openai
-```
-
-or if not installed:
-
-```bash
-./target/release/koko openai
-```
-
-2. Make API requests using either curl or Python:
-
-Using curl:
-
-```bash
-# Standard audio generation
-curl -X POST http://localhost:3000/v1/audio/speech \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "tts-1",
-    "input": "Hello, this is a test of the Kokoro TTS system!",
-    "voice": "af_sky"
-  }' \
-  --output sky-says-hello.wav
-
-# Streaming audio generation (PCM format only)
-curl -X POST http://localhost:3000/v1/audio/speech \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "tts-1",
-    "input": "This is a streaming test with real-time audio generation.",
-    "voice": "af_sky",
-    "stream": true
-  }' \
-  --output streaming-audio.pcm
-
-# Live streaming playback (requires ffplay)
-curl -s -X POST http://localhost:3000/v1/audio/speech \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "tts-1",
-    "input": "Hello streaming world!",
-    "voice": "af_sky",
-    "stream": true
-  }' | \
-  ffplay -f s16le -ar 24000 -nodisp -autoexit -loglevel quiet -
-```
-
-Using Python:
-
-```bash
-python scripts/run_openai.py
-```
-
 ### Streaming
 
 The `stream` option will start the program, reading for lines of input from stdin and outputting WAV audio to stdout.
@@ -234,25 +125,10 @@ koko stream > live-audio.wav
 # Hit Ctrl D to exit
 ```
 
-or if not installed:
-
-```
-./target/release/koko stream > live-audio.wav
-# Start typing some text to generate speech for and hit enter to submit
-# Speech will append to `live-audio.wav` as it is generated
-# Hit Ctrl D to exit
-```
-
 #### Input from another source
 
 ```
 echo "Suppose some other program was outputting lines of text" | koko stream > programmatic-audio.wav
-```
-
-or if not installed:
-
-```
-echo "Suppose some other program was outputting lines of text" | ./target/release/koko stream > programmatic-audio.wav
 ```
 
 ### With docker
@@ -268,14 +144,7 @@ docker build -t kokoros .
 ```bash
 # Basic text to speech
 docker run -v ./tmp:/app/tmp kokoros text "Hello from docker!" -o tmp/hello.wav
-
-# An OpenAI server (with appropriately bound port)
-docker run -p 3000:3000 kokoros openai
 ```
-
-## Roadmap
-
-Due to Kokoro actually not finalizing it's ability, this repo will keep tracking the status of Kokoro, and helpfully we can have language support incuding: English, Mandarin, Japanese, German, French etc.
 
 ## Copyright & License
 

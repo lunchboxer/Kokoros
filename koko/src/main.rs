@@ -4,7 +4,6 @@ use kokoros::{
     tts::koko::{TTSKoko, TTSOpts},
     utils::wav::{write_audio_chunk, WavHeader},
 };
-use std::net::{IpAddr, SocketAddr};
 use std::{
     fs,
     io::{Write, Read},
@@ -66,18 +65,6 @@ enum Mode {
     /// List all available voices
     #[command(alias = "v", long_flag_alias = "voices", short_flag_alias = 'v')]
     Voices,
-
-    /// Start an OpenAI-compatible HTTP server
-    #[command(name = "openai", alias = "oai", long_flag_aliases = ["oai", "openai"])]
-    OpenAI {
-        /// IP address to bind to (typically 127.0.0.1 or 0.0.0.0)
-        #[arg(long, default_value_t = [0, 0, 0, 0].into())]
-        ip: IpAddr,
-
-        /// Port to expose the HTTP server on
-        #[arg(long, default_value_t = 3000)]
-        port: u16,
-    },
 }
 
 #[derive(Parser, Debug)]
@@ -172,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             speed,
             initial_silence,
             mono,
-            instances,
+            instances: _, // Ignore unused instances variable
             mode,
         } = Cli::parse();
 
@@ -313,21 +300,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Mode::Voices => {
                 // This case is handled earlier, so we just return
                 return Ok(());
-            }
-
-            Mode::OpenAI { ip, port } => {
-                // Create multiple independent TTS instances for parallel processing
-                let mut tts_instances = Vec::new();
-                for i in 0..instances {
-                    tracing::info!("Initializing TTS instance [{}] ({}/{})", format!("{:02x}", i), i + 1, instances);
-                    let instance = TTSKoko::new(&model_path, &data_path).await;
-                    tts_instances.push(instance);
-                }
-                let app = kokoros_openai::create_server(tts_instances).await;
-                let addr = SocketAddr::from((ip, port));
-                let binding = tokio::net::TcpListener::bind(&addr).await?;
-                tracing::info!("Starting OpenAI-compatible HTTP server on {}", addr);
-                kokoros_openai::serve(binding, app.into_make_service()).await?;
             }
 
             Mode::Stream => {
